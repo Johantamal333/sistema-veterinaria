@@ -5,24 +5,22 @@ const mysql = require("mysql");
 
 let connection;
 
-try {
-    connection = mysql.createConnection({
-        host: process.env.DB_HOST,     // ✔ Nombre corregido
-        user: process.env.DB_USER,     // ✔ Nombre corregido
-        password: process.env.DB_PASSWORD, // ✔ Nombre corregido
-        database: process.env.DB_NAME  // ✔ Nombre corregido
-    });
+// Crear la conexión
+connection = mysql.createConnection({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
 
-    connection.connect((err) => {
-        if (err) {
-            console.error("❌ Error al conectar con la base de datos: ", err);
-            return;
-        }
-        console.log("✅ Conexión exitosa a la base de datos");
-    });
+// Conectar con la base de datos
+connection.connect((err) => {
+  if (err) {
+    console.error("❌ Error al conectar con la base de datos: ", err);
+    return;
+  }
+  console.log("✅ Conexión exitosa a la base de datos");
+});
 
-} catch (error) {
-    console.log("❌ Error al conectar con la base de datos:", error);
-}
-
+// Exportar la conexión para su uso en otras partes de la aplicación
 module.exports = { connection };
