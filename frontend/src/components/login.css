@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 0 20px;
+  background-color: #f0f7ff; /* Fondo suave azul */
+  gap: 2%; /* Espacio entre las columnas */
+}
+
+/* Estilo para el formulario */
+.login-form {
+  width: 30%; /* Asegura que ambas columnas tengan el mismo ancho */
+  padding: 5%;
+  background-color: #ffffff; /* Fondo blanco para el formulario */
+  border-radius: 8px; /* Redondeo más moderado */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.login-title {
+  font-size: 24px;
+  color: #004d99; /* Azul oscuro */
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.login-error {
+  color: red;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+/* Campos del formulario */
+.login-field {
+  margin-bottom: 15px;
+}
+
+.login-label {
+  font-size: 14px;
+  color: #004d99; /* Azul oscuro */
+  margin-bottom: 5px;
+}
+
+.login-input {
+  padding: 10px;
+  border: 1px solid #004d99; /* Bordes azules */
+  border-radius: 4px;
+  width: 100%;
+}
+
+.login-button {
+  padding: 10px;
+  background-color: #007bff; /* Azul brillante */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background-color: #0056b3; /* Azul más oscuro al pasar el ratón */
+}
+
+/* Estilo para la sección de bienvenida */
+.login-welcome {
+  width: 30%; /* Asegura que ambas columnas tengan el mismo ancho */
+  padding: 5%;
+  background-color: #e3f2fd; /* Fondo azul claro */
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.login-welcome h2 {
+  font-size: 28px;
+  color: #004d99; /* Azul oscuro */
+  margin-bottom: 15px;
+}
+
+.login-welcome p {
+  font-size: 16px;
+  color: #555;
+  line-height: 1.5;
+}
