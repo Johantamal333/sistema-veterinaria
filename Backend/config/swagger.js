@@ -132,7 +132,41 @@ const options = {
             email: "carlos@example.com",
             direccion: "Avenida Siempre Viva 742"
           }
-        }
+        },
+        Paciente: {
+          type: "object",
+          required: ["nombre", "especie", "raza", "edad"],
+          properties: {
+            id: { type: "integer", description: "ID del paciente" },
+            nombre: { type: "string", description: "Nombre del paciente" },
+            especie: { type: "string", description: "Especie del paciente" },
+            raza: { type: "string", description: "Raza del paciente" },
+            edad: { type: "integer", description: "Edad en años" }
+          },
+          example: {
+            id: 1,
+            nombre: "Max",
+            especie: "Perro",
+            raza: "Labrador",
+            edad: 3
+          }
+        },
+        PacienteSinId: {
+          type: "object",
+          required: ["nombre", "especie", "raza", "edad"],
+          properties: {
+            nombre: { type: "string" },
+            especie: { type: "string" },
+            raza: { type: "string" },
+            edad: { type: "integer" }
+          },
+          example: {
+            nombre: "Luna",
+            especie: "Gato",
+            raza: "Siamés",
+            edad: 2
+          }
+        },
       }
     },
     security: [{ bearerAuth: [] }],
@@ -500,8 +534,165 @@ const options = {
           }
          }
 
+        },
+        "/pacientes": {
+  get: {
+    summary: "Obtener pacientes paginados",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    parameters: [
+      {
+        name: "page",
+        in: "query",
+        description: "Número de página",
+        schema: { type: "integer", default: 1 }
+      },
+      {
+        name: "limit",
+        in: "query",
+        description: "Resultados por página",
+        schema: { type: "integer", default: 5 }
+      }
+    ],
+    responses: {
+      200: {
+        description: "Lista de pacientes con paginación",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                data: { 
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Paciente" }
+                },
+                totalPages: { type: "integer" },
+                currentPage: { type: "integer" },
+                totalRecords: { type: "integer" }
+              }
+            }
+          }
         }
+      },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
     }
+  },
+  post: {
+    summary: "Crear nuevo paciente",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/PacienteSinId" }
+        }
+      }
+    },
+    responses: {
+      201: { description: "Paciente creado exitosamente" },
+      400: { description: "Datos inválidos" },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
+    }
+  }
+},
+"/pacientes/{id}": {
+  get: {
+    summary: "Obtener paciente por ID",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    parameters: [{
+      name: "id",
+      in: "path",
+      required: true,
+      schema: { type: "integer" }
+    }],
+    responses: {
+      200: {
+        description: "Detalles del paciente",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Paciente" }
+          }
+        }
+      },
+      404: { description: "Paciente no encontrado" },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
+    }
+  },
+  put: {
+    summary: "Actualizar paciente",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    parameters: [{
+      name: "id",
+      in: "path",
+      required: true,
+      schema: { type: "integer" }
+    }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/PacienteSinId" }
+        }
+      }
+    },
+    responses: {
+      200: { description: "Paciente actualizado" },
+      400: { description: "Datos inválidos" },
+      404: { description: "Paciente no encontrado" },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
+    }
+  },
+  delete: {
+    summary: "Eliminar paciente",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    parameters: [{
+      name: "id",
+      in: "path",
+      required: true,
+      schema: { type: "integer" }
+    }],
+    responses: {
+      200: { description: "Paciente eliminado" },
+      404: { description: "Paciente no encontrado" },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
+    }
+  }
+},
+"/pacientes/total": {
+  get: {
+    summary: "Obtener total de pacientes",
+    tags: ["Pacientes"],
+    security: [{ bearerAuth: [] }],
+    responses: {
+      200: {
+        description: "Total de pacientes registrados",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                total: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      401: { description: "No autorizado" },
+      500: { description: "Error en el servidor" }
+    }
+  }
+}
+    }
+    
   },
   apis: ["./routes/*.js"]
 };

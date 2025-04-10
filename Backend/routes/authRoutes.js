@@ -1,7 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { connection } = require("../config/config.db"); // Importamos la conexión
+const { connection } = require("../config/config.db");
+const verificarToken = require("../middleware/authMiddleware"); // Importamos la conexión
 require("dotenv").config();
 
 const router = express.Router();
@@ -57,6 +58,38 @@ router.post("/login", (req, res) => {
             res.status(500).json({ mensaje: "Error al procesar la contraseña" });
         }
     });
+    router.get("/me", verificarToken, (req, res) => {
+        try {
+          if (!req.user) return res.status(401).json({ mensaje: "No autorizado" });
+          
+          res.json({
+            id: req.user.id,
+            username: req.user.username,
+            email: req.user.email
+          });
+        } catch (error) {
+          console.error("Error en /me:", error);
+          res.status(500).json({ mensaje: "Error al obtener usuario" });
+        }
+      });
+    
+
 });
+router.get("/me", verificarToken, (req, res) => {
+    connection.query(
+      "SELECT id, username, email FROM administradores WHERE id = ?",
+      [req.user.id],
+      (err, results) => {
+        if (err) {
+          console.error("Error en la consulta:", err);
+          return res.status(500).json({ error: "Error del servidor" });
+        }
+        if (results.length === 0) {
+          return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+        res.json(results[0]);
+      }
+    );
+  });
 
 module.exports = router;

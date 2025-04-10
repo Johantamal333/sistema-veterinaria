@@ -1,0 +1,168 @@
+const express = require("express");
+const { connection } = require("../config/config.db");
+const bcrypt = require("bcryptjs");
+const verificarToken = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+// Obtener información del dueño actual
+router.get("/perfil", verificarToken, async (req, res) => {
+  try {
+    connection.query(
+      "SELECT id, nombre, apellido, telefono, email, direccion, rol_id FROM dueños WHERE id = ?",
+      [req.user.id],
+      (err, rows) => {
+        if (err) {
+          console.error("Error en la consulta:", err);
+          return res.status(500).json({ mensaje: "Error en el servidor" });
+        }
+        res.json(rows[0] || {});
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+// Crear nuevo dueño (registro)
+router.post("/", async (req, res) => {
+  const { nombre, apellido, telefono, email, password, direccion } = req.body;
+
+  try {
+    // Validar campos requeridos
+    if (!nombre || !apellido || !email || !password) {
+      return res.status(400).json({ mensaje: "Campos obligatorios faltantes" });
+    }
+
+    // Verificar duplicados
+    const [existing] = await connection.promise().query(
+      "SELECT id FROM dueños WHERE email = ?",
+      [email]
+    );
+
+    if (existing.length > 0) {
+      return res.status(409).json({
+        mensaje: "El correo ya está registrado",
+        codigo: "DUEÑO_DUPLICADO"
+      });
+    }
+
+    // Hash de contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insertar nuevo dueño
+    const [result] = await connection.promise().query(
+      "INSERT INTO dueños (nombre, apellido, telefono, email, password, direccion, rol_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [nombre, apellido, telefono, email, hashedPassword, direccion, 2]
+    );
+
+    res.status(201).json({
+      mensaje: "Dueño registrado exitosamente",
+      id: result.insertId
+    });
+
+  } catch (error) {
+    console.error("Error en registro de dueño:", error);
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+// Obtener todos los dueños (paginado)
+router.get("/", verificarToken, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Consulta paginada
+    const [rows] = await connection.promise().query(
+      "SELECT id, nombre, apellido, telefono, email, direccion FROM dueños LIMIT ? OFFSET ?",
+      [limit, offset]
+    );
+
+    // Contar total
+    const [total] = await connection.promise().query(
+      "SELECT COUNT(*) AS total FROM dueños"
+    );
+
+    res.json({
+      data: rows,
+      paginacion: {
+        paginaActual: page,
+        totalRegistros: total[0].total,
+        totalPaginas: Math.ceil(total[0].total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo dueños:", error);
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+// Actualizar dueño
+router.put("/:id", verificarToken, async (req, res) => {
+  const { id } = req.params;
+  const { nombre, apellido, telefono, email, direccion } = req.body;
+
+  try {
+    const [result] = await connection.promise().query(
+      "UPDATE dueños SET nombre = ?, apellido = ?, telefono = ?, email = ?, direccion = ? WHERE id = ?",
+      [nombre, apellido, telefono, email, direccion, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensaje: "Dueño no encontrado" });
+    }
+
+    res.json({ mensaje: "Dueño actualizado correctamente" });
+
+  } catch (error) {
+    console.error("Error actualizando dueño:", error);
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+// Eliminar dueño
+router.delete("/:id", verificarToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await connection.promise().query(
+      "DELETE FROM dueños WHERE id = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensaje: "Dueño no encontrado" });
+    }
+
+    res.json({ mensaje: "Dueño eliminado correctamente" });
+
+  } catch (error) {
+    console.error("Error eliminando dueño:", error);
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+// Obtener dueño específico
+router.get("/:id", verificarToken, async (req, res) => {
+  try {
+    const [rows] = await connection.promise().query(
+      "SELECT id, nombre, apellido, telefono, email, direccion FROM dueños WHERE id = ?",
+      [req.params.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ mensaje: "Dueño no encontrado" });
+    }
+
+    res.json(rows[0]);
+
+  } catch (error) {
+    console.error("Error obteniendo dueño:", error);
+    res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+});
+
+module.exports = router;

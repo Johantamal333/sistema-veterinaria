@@ -1,13 +1,14 @@
 const express = require("express");
 const { connection } = require("../config/config.db");
+const bcrypt = require('bcryptjs');
 const verificarToken = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/perfil", verificarToken, async (req, res) => {
+router.get("/perfil", async (req, res) => {
   try {
     connection.query(
-      "SELECT id, username, email FROM administradores WHERE id = ?",
+      "SELECT id, username, email, rol_id FROM administradores WHERE id = ?",
       [req.user.id],
       (err, rows) => {
         if (err) {
@@ -27,58 +28,123 @@ router.get("/perfil", verificarToken, async (req, res) => {
 
 router.get("/admin", verificarToken, async (req, res) => {
   try {
-    connection.query(
-      "SELECT id, username, email FROM administradores",
-      (err, rows) => {
-        if (err) {
-          return res.status(500).json({ mensaje: "Error al obtener administradores" });
-        }
-        res.json(rows);
-      }
-    );
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const offset = (page - 1) * limit;
+
+    // Consulta paginada
+    const queryData = `
+      SELECT id, username, email 
+      FROM administradores 
+      LIMIT ? OFFSET ?
+    `;
+
+    // Consulta total de registros
+    const queryCount = "SELECT COUNT(*) AS total FROM administradores";
+
+    connection.query(queryCount, (errCount, countResult) => {
+      if (errCount) return res.status(500).json({ mensaje: "Error al contar registros" });
+
+      connection.query(queryData, [limit, offset], (err, rows) => {
+        if (err) return res.status(500).json({ mensaje: "Error al obtener administradores" });
+
+        res.json({
+          data: rows,
+          total: countResult[0].total,
+          page: page,
+          totalPages: Math.ceil(countResult[0].total / limit)
+        });
+      });
+    });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener administradores" });
+    res.status(500).json({ mensaje: "Error del servidor" });
   }
+  
 });
 
-router.post("/admin", verificarToken, async (req, res) => {
+router.post("/admin", async (req, res) => {
   const { username, password, email } = req.body;
+
   try {
-    connection.query(
-      "INSERT INTO administradores (username, password, email) VALUES (?, ?, ?)",
-      [username, password, email],
-      (err, result) => {
-        if (err) {
-          return res.status(500).json({ mensaje: "Error al crear administrador" });
+    // 1. Verificar si el usuario ya existe
+    const checkUser = await new Promise((resolve, reject) => {
+      connection.query(
+        "SELECT id FROM administradores WHERE username = ? OR email = ?",
+        [username, email],
+        (err, results) => {
+          if (err) reject(err);
+          resolve(results);
         }
-        res.status(201).json({ mensaje: "Administrador creado con éxito", id: result.insertId });
-      }
-    );
+      );
+    });
+
+    if (checkUser.length > 0) {
+      return res.status(409).json({
+        mensaje: "El nombre de usuario o correo electrónico ya está registrado",
+        codigo: "USUARIO_DUPLICADO"
+      });
+    }
+
+    // 2. Hash de la contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 3. Insertar nuevo administrador
+    const result = await new Promise((resolve, reject) => {
+      connection.query(
+        "INSERT INTO administradores (username, password, email) VALUES (?, ?, ?)",
+        [username, hashedPassword, email],
+        (err, result) => {
+          if (err) reject(err);
+          resolve(result);
+        }
+      );
+    });
+
+    res.status(201).json({
+      mensaje: "Administrador creado con éxito",
+      id: result.insertId
+    });
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear administrador" });
+    // Manejo específico de error de duplicación
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        mensaje: "El nombre de usuario o correo electrónico ya está registrado",
+        codigo: "USUARIO_DUPLICADO"
+      });
+    }
+    
+    console.error("Error en el proceso:", error);
+    res.status(500).json({
+      mensaje: "Error al crear administrador",
+      codigo: "ERROR_SERVIDOR"
+    });
   }
 });
-
 router.put("/admin/:id", verificarToken, async (req, res) => {
   const { id } = req.params;
   const { username, password, email } = req.body;
 
   try {
-    connection.query(
-      "UPDATE administradores SET username = ?, password = ?, email = ? WHERE id = ?",
-      [username, password, email, id],
-      (err, result) => {
-        if (err) {
-          return res.status(500).json({ mensaje: "Error al actualizar administrador" });
-        }
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ mensaje: "Administrador no encontrado" });
-        }
-        res.json({ mensaje: "Administrador actualizado con éxito" });
-      }
-    );
+    let query;
+    let params;
+    
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query = "UPDATE administradores SET username = ?, password = ?, email = ? WHERE id = ?";
+      params = [username, hashedPassword, email, id];
+    } else {
+      query = "UPDATE administradores SET username = ?, email = ? WHERE id = ?";
+      params = [username, email, id];
+    }
+
+    connection.query(query, params, (err, result) => {
+      if (err) return res.status(500).json({ mensaje: "Error al actualizar" });
+      if (result.affectedRows === 0) return res.status(404).json({ mensaje: "Admin no encontrado" });
+      res.json({ mensaje: "Actualización exitosa" });
+    });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al actualizar administrador" });
+    res.status(500).json({ mensaje: "Error del servidor" });
   }
 });
 
@@ -104,4 +170,32 @@ router.delete("/admin/:id", verificarToken, async (req, res) => {
   }
 });
 
+router.get("/admin/:id", verificarToken, (req, res) => {
+  try {
+    connection.query(
+      "SELECT id, username, email FROM administradores WHERE id = ?",
+      [req.params.id],
+      (err, rows) => {
+        if (err) return res.status(500).json({ mensaje: "Error al obtener admin" });
+        if (rows.length === 0) return res.status(404).json({ mensaje: "Admin no encontrado" });
+        res.json(rows[0]);
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error del servidor" });
+  }
+});
+// 📌 Total de administradores
+router.get("/total", verificarToken, (req, res) => { // <- Cambiar aquí
+  connection.query(
+    "SELECT COUNT(*) AS total FROM administradores",
+    (err, results) => {
+      if (err) {
+        console.error("❌ Error al obtener total de administradores:", err);
+        return res.status(500).json({ mensaje: "Error en el servidor" });
+      }
+      res.json({ total: results[0].total });
+    }
+  );
+});
 module.exports = router;
